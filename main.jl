@@ -1,11 +1,14 @@
 include("BlackBoxOptimization.jl")
-using .BlackBoxOptimization, Plots, LinearAlgebra
+using .BlackBoxOptimization, Plots, LinearAlgebra, Random
 
 function flower(x; a=1, b=1, c=4)
     return a*norm(x) + b*sin(c*atan(x[2], x[1]))
 end
 
-result = covariance_matrix_adaptation(flower, [1,1], 6; m = 10)
+Random.seed!(101)
+cma_result = covariance_matrix_adaptation(flower, [1,1], 6; m = 10)
+cemvn_result = cross_entropy_mvn(flower, [1,1], Matrix(1.0I, 2, 2), 6, 10, 5)
+                            #k_max = 6, m = 10, m_elite=5)
 
 x = range(-3, 3, length = 1000)
 heat = heatmap(x, x, (w, z) -> flower([w,z]),
@@ -13,7 +16,7 @@ heat = heatmap(x, x, (w, z) -> flower([w,z]),
                 legend=:none,
                 c=:thermal)
 
-function plot_update(result::CMAIterResult, h::Plots.Plot{Plots.GRBackend})
+function plot_update(result::IterResult, h::Plots.Plot{Plots.GRBackend})
     cov1 = result.Σ
     mu1 = result.μ
     s = result.sample
@@ -28,13 +31,10 @@ function plot_update(result::CMAIterResult, h::Plots.Plot{Plots.GRBackend})
     return scatter(cont, first.(s), last.(s), legend=:none)
 end
 
-p1 = plot_update(result[2][1], heat)
-p2 = plot_update(result[2][2], heat)
-p3 = plot_update(result[2][3], heat)
-p4 = plot_update(result[2][4], heat)
-p5 = plot_update(result[2][5], heat)
-p6 = plot_update(result[2][6], heat)
-plot(p1, p2, p3, p4, p5, p6, layout = (2, 3), legend = false,
+cma_plots = [plot_update(cma_result[2][i], heat) for i in 1:6]
+plot(cma_plots..., layout = (2, 3), legend = false,
         size = (1200, 800))
 
-
+cemvn_plots = [plot_update(cemvn_result[2][i], heat) for i in 1:6]
+plot(cemvn_plots..., layout = (2, 3), legend = false,
+        size = (1200, 800))

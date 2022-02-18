@@ -1,10 +1,9 @@
 module BlackBoxOptimization
 
-export CMAIterResult, covariance_matrix_adaptation
-
+export IterResult, covariance_matrix_adaptation, cross_entropy_mvn
 using LinearAlgebra, Distributions
 
-struct CMAIterResult
+struct IterResult
     μ::Vector
     Σ::Matrix
     sample::Vector
@@ -27,7 +26,7 @@ function covariance_matrix_adaptation(f, x, k_max;
     E = n^0.5 * (1 - 1/(4n) + 1/(21 * n^2))
     pσ, pΣ, Σ = zeros(n), zeros(n), Matrix(1.0I, n, n)
 
-    result = Vector{CMAIterResult}(undef, k_max)
+    result = Vector{IterResult}(undef, k_max)
     for k in 1 : k_max
         P = MvNormal(μ, σ^2 * Σ)
         xs = [rand(P) for _ in 1:m]
@@ -37,7 +36,7 @@ function covariance_matrix_adaptation(f, x, k_max;
         # selection and mean update
         δs = [(x - μ)/σ for x in xs]
         δw = sum(ws[i] * δs[is[i]] for i in 1:m_elite)
-        result[k] = CMAIterResult(μ, σ^2 * Σ, xs[is[1:m_elite]])
+        result[k] = IterResult(μ, σ^2 * Σ, xs[is[1:m_elite]])
         μ += σ * δw
 
         # step-size control
@@ -58,4 +57,19 @@ function covariance_matrix_adaptation(f, x, k_max;
     return μ, result
 end
 
+function cross_entropy_mvn(f, μ, Σ, k_max, m=100, m_elite=10)
+    result = Vector{IterResult}(undef, k_max)
+    P = MvNormal(μ, Σ)
+    for k in 1:k_max
+        xs = [rand(P) for _ in 1:m]
+        ys = [f(x) for x in xs]
+        is = sortperm(ys) # best to worst
+        elite = xs[is[1:m_elite]]
+        result[k] = IterResult(μ, Σ, elite)
+        μ = mean(elite)
+        Σ = sum((x - μ) * (x - μ)' for x in elite) / m_elite
+        P = MvNormal(μ, Σ)
+    end
+    return μ, result
+end
 end
