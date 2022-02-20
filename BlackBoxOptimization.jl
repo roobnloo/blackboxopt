@@ -57,7 +57,7 @@ function covariance_matrix_adaptation(f, x, k_max;
     return μ, result
 end
 
-function cross_entropy_mvn(f, μ, Σ, k_max, m=100, m_elite=10)
+function cross_entropy_mvn(f, μ, Σ, k_max; m=100, m_elite=10)
     result = Vector{IterResult}(undef, k_max)
     P = MvNormal(μ, Σ)
     for k in 1:k_max
