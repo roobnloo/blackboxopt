@@ -6,6 +6,10 @@ function flower(x; a=1, b=1, c=4)
     return a*norm(x) + b*sin(c*atan(x[2], x[1]))
 end
 
+function michalewicz(x; m=10)
+    return -sum(sin(v)*sin(i*v^2/π)^(2m) for (i,v) in enumerate(x))
+end
+
 function plot_update(result::IterResult, h::Plots.Plot{Plots.GRBackend})
     cov1 = result.Σ
     mu1 = result.μ
@@ -52,4 +56,40 @@ function flower_test_plot()
             size = (900, 600), axis=([], false), margin = 0mm))
 end
 
-flower_test_plot()
+# flower_test_plot()
+
+function michalewicz_plot(nsamp::Int, alg::String)
+    d = 20 
+    optimum = -19.6370136 
+    μ0 = repeat([1], d)
+    max_iter = 500
+    Random.seed!(102)
+
+    local result
+    if alg == "cma"
+        result = covariance_matrix_adaptation(michalewicz, μ0, max_iter;
+                        m = nsamp)
+    elseif alg == "cemvn"
+        result = cross_entropy_mvn(michalewicz, μ0, Matrix(1.0I, d, d), max_iter;
+                        m = nsamp, m_elite = div(nsamp, 2))
+    end
+
+    println(length(result[2]))
+    println(michalewicz(result[1]))
+
+    means = [ir.μ for ir in result[2]]
+    return 1:length(result[2]), abs.(michalewicz.(means) .- optimum)
+end
+
+function michalewicz_compare(nsamp)
+    cemvndata = michalewicz_plot(nsamp, "cemvn")
+    cmadata = michalewicz_plot(nsamp, "cma")
+
+    plot(cemvndata, label = "CEMVN", title = "Sample size $nsamp",
+            xlabel = "Iterations", ylabel = "Error")
+    plot!(cmadata, label = "CMA-ES")
+    maxlen = maximum([length(cemvndata[1]), length(cmadata[1])])
+    plot!(0, maxlen)
+end
+
+p = michalewicz_compare.(100:500:1100)

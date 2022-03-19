@@ -12,7 +12,8 @@ end
 function covariance_matrix_adaptation(f, x, k_max;
     σ = 1.0,
     m = 4 + floor(Int, 3*log(length(x))),
-    m_elite = div(m, 2))
+    m_elite = div(m, 2),
+    tol = 10e-6)
 
     μ, n = copy(x), length(x)
     ws = normalize!(vcat(log((m+1)/2) .- log.(1:m_elite), 
@@ -53,11 +54,16 @@ function covariance_matrix_adaptation(f, x, k_max;
             c1 * (pΣ * pΣ' + (1-hσ) * cΣ * (2 - cΣ) * Σ) +
             cμ * sum(w0[i] * δs[is[i]] * δs[is[i]]' for i in 1:m)
         Σ = triu(Σ) + triu(Σ, 1)' # enforce symmetry
+
+        if norm(μ - result[k].μ) <= tol
+            result = result[1:k]
+            break
+        end
     end
     return μ, result
 end
 
-function cross_entropy_mvn(f, μ, Σ, k_max; m=100, m_elite=10)
+function cross_entropy_mvn(f, μ, Σ, k_max; m=100, m_elite=10, tol=10e-6)
     result = Vector{IterResult}(undef, k_max)
     P = MvNormal(μ, Σ)
     for k in 1:k_max
@@ -66,9 +72,16 @@ function cross_entropy_mvn(f, μ, Σ, k_max; m=100, m_elite=10)
         is = sortperm(ys) # best to worst
         elite = xs[is[1:m_elite]]
         result[k] = IterResult(μ, Σ, elite)
-        μ = mean(elite)
-        Σ = sum((x - μ) * (x - μ)' for x in elite) / m_elite
-        P = MvNormal(μ, Σ)
+        # μ = mean.(elite)
+        # Σ = sum((x - μ) * (x - μ)' for x in elite) / m_elite
+        P = fit(typeof(P), transpose(reduce(vcat, transpose.(elite))))
+        μ = mean(P)
+        Σ = cov(P)
+
+        if norm(μ - result[k].μ) <= tol
+            result = result[1:k]
+            break
+        end
     end
     return μ, result
 end
