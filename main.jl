@@ -80,7 +80,7 @@ function flower_mean_update_plot()
     display(mean_plot)
 end
 
-flower_mean_update_plot()
+#flower_mean_update_plot()
 
 function michalewicz_plot(nsamp::Int, alg::String)
     d = 20 
@@ -116,4 +116,5 @@ function michalewicz_compare(nsamp)
     plot!(0, maxlen)
 end
 
-#p = michalewicz_compare.(100:500:1100)
+p = michalewicz_compare.(100:500:1100)
+plot(p..., layout = (1,3), size = (1200, 400), margin = 4mm)
