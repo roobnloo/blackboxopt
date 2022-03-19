@@ -10,7 +10,8 @@ function michalewicz(x; m=10)
     return -sum(sin(v)*sin(i*v^2/π)^(2m) for (i,v) in enumerate(x))
 end
 
-function plot_update(result::IterResult, h::Plots.Plot{Plots.GRBackend})
+function plot_update(result::IterResult, h::Plots.Plot{Plots.GRBackend},
+        lim = (-3, 3))
     cov1 = result.Σ
     mu1 = result.μ
     s = result.sample
@@ -19,7 +20,7 @@ function plot_update(result::IterResult, h::Plots.Plot{Plots.GRBackend})
     xs = -3:0.01:3
     ys = -3:0.01:3
     cont = contour(h, xs, ys, qf, levels = 0:0.2:1, clim = (-1, 6),
-                    xlim = (-3, 3), ylim = (-3, 3),
+                    xlim = lim, ylim = lim,
                     c = :white, aspect_ratio = :equal,
                     size = (500, 500), legend=:none)
     return scatter(cont, first.(s), last.(s), legend=:none, c = :white)
@@ -56,7 +57,30 @@ function flower_test_plot()
             size = (900, 600), axis=([], false), margin = 0mm))
 end
 
-# flower_test_plot()
+function flower_mean_update_plot()
+    μ0 = [2, 2]
+
+    Random.seed!(102)
+    cma_result = covariance_matrix_adaptation(flower, μ0, 2; m = 20)
+
+    Random.seed!(102)
+    cemvn_result = cross_entropy_mvn(flower, μ0, Matrix(1.0I, 2, 2), 2; 
+                                     m = 20, m_elite = 10)
+
+    x = range(-0.5, 3, length = 1000)
+    heat = heatmap(x, x, (w, z) -> flower([w,z]),
+                    aspect_ratio=:equal,
+                    legend=:none,
+                    c=:haline)
+
+    mean_plot = plot_update(cma_result[2][1], heat, (-0.5, 3))
+    update_x = [cma_result[2][2].μ[1], cemvn_result[2][2].μ[1]]
+    update_y = [cma_result[2][2].μ[2], cemvn_result[2][2].μ[2]]
+    mean_plot = scatter(mean_plot, update_x, update_y, color = ["red", "blue"])
+    display(mean_plot)
+end
+
+flower_mean_update_plot()
 
 function michalewicz_plot(nsamp::Int, alg::String)
     d = 20 
@@ -92,4 +116,4 @@ function michalewicz_compare(nsamp)
     plot!(0, maxlen)
 end
 
-p = michalewicz_compare.(100:500:1100)
+#p = michalewicz_compare.(100:500:1100)
